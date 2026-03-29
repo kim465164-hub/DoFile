@@ -697,69 +697,37 @@ dofile.WriteAll("output.json", "output.txt");
 
 ---
 
+---
 ### Using DoFile as a Library
 
-#### Example 1: Basic Usage
+Because `dofile.cpp` now has an include guard you can simply `#include "dofile.cpp"` from any executable or library without needing to duplicate the parser definition. The `run()` method still returns `map<string, Variable>`, but `Variable` now exposes automatic conversion operators (`int`, `float`, `double`, `string`, `bool`) plus the `getRawValue()` helper, so client code can assign typed values without manually calling `asInt()`/`asString()`.
 
-**file.cpp:**
 ```cpp
+#include "dofile.cpp"
 #include <iostream>
-// ... include DoFile class definition ...
 
 int main() {
-    DoFile<string> dofile;
-    dofile.ReadFile("data.txt");
-    dofile.run();
-    dofile.WriteToJSON("result.json");
-    return 0;
+    DoFile<string> parser;
+    parser.ReadFile("file.txt");
+    auto data = parser.run();
+
+    if (auto it = data.find("x"); it != data.end()) {
+        int x = it->second;                // automatic conversion to int
+        cout << "x + 5 = " << (x + 5) << endl;
+    }
+
+    if (auto it = data.find("name"); it != data.end()) {
+        string name = it->second;          // string conversion
+        cout << "name = " << name << endl;
+    }
+
+    if (auto it = data.find("words"); it != data.end()) {
+        cout << "words (raw) = " << it->second.getRawValue() << endl;
+    }
 }
 ```
 
-#### Example 2: With Debug Output
-
-```cpp
-DoFile<string> dofile;
-dofile.debug = true;
-dofile.ReadFile("data.txt");
-dofile.run();  // Shows debug messages
-dofile.WriteAll("out.json", "out.txt");
-```
-
-#### Example 3: Multiple Files
-
-```cpp
-DoFile<string> file1, file2;
-
-// Process first file
-file1.ReadFile("input1.txt");
-file1.run();
-file1.WriteToJSON("output1.json");
-
-// Process second file
-file2.ReadFile("input2.txt");
-file2.run();
-file2.WriteToJSON("output2.json");
-```
-
-#### Example 4: Error Handling
-
-```cpp
-#include <fstream>
-#include <iostream>
-
-DoFile<string> dofile;
-dofile.ReadFile("file.txt");
-
-if (dofile.lines.empty()) {
-    cerr << "Error: No lines read from file" << endl;
-    return 1;
-}
-
-dofile.run();
-dofile.WriteAll("output.json", "output.txt");
-```
-
-Because `dofile.cpp` is now wrapped in an include guard, you can `#include "dofile.cpp"` from any translation unit and retrieve the parser output as a `map<string, Variable>` without rewriting the parser logic. The `Variable` struct exposes conversion operators for `int`, `float`, `double`, `string`, and `bool` plus the `getRawValue()` helper, so client code can assign typed values directly (e.g., `int x = data["x"]; string name = data["name"];`). The provided `open_file.cpp` example demonstrates how to include `dofile.cpp`, run the reader, and immediately use the typed values or raw collections for downstream processing.
+Use `auto data = parser.run();` whenever you need the latest state and return it from your own functions. The shipped `open_file.cpp` example demonstrates this workflow in a standalone binary: it includes `dofile.cpp`, runs the parser, and immediately consumes typed values from the returned map without extra conversion helpers.
 
 ---
 
