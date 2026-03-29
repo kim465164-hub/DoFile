@@ -342,7 +342,7 @@ class DoFile {
         }
     }
 
-    map<string, T> run() {
+    map<string, pair<string, string>> run() {
         map<string, pair<string, string>> context;  // var_name -> (type, value)
         vector<vector<pair<string, string>>> tokens = this->lexer();
         
@@ -388,8 +388,7 @@ class DoFile {
         }
         cout << "}" << endl;
         
-        map<string, T> result;
-        return result;
+        return context;
     }
     
     // Write to JSON file

@@ -342,7 +342,7 @@ class DoFile {
         }
     }
 
-    map<string, T> run() {
+    map<string, pair<string, string>> run() {
         map<string, pair<string, string>> context;  // var_name -> (type, value)
         vector<vector<pair<string, string>>> tokens = this->lexer();
         
@@ -388,8 +388,7 @@ class DoFile {
         }
         cout << "}" << endl;
         
-        map<string, T> result;
-        return result;
+        return context;
     }
     
     // Write to JSON file
@@ -463,11 +462,16 @@ int main() {
     
     // Read and process the input file
     dofile.ReadFile("file.txt");
-    dofile.run();
+    auto data = dofile.run();
+
+    cout << "✓ Processing completed successfully!" << endl;
+    cout << "\n=== Using returned data ===" << endl;
     
-    // Write outputs
-    dofile.WriteToJSON("output.json");
-    dofile.WriteToSource("output.txt");
+    // Access variables from the returned map
+    for (const auto& entry : data) {
+        cout << entry.first << ": type=" << entry.second.first 
+             << ", value=" << entry.second.second << endl;
+    }
 
     return 0;
 }

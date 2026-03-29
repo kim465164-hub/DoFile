@@ -433,7 +433,7 @@ class DoFile {
         // Core methods
         void ReadFile(const string& filepath);
         vector<vector<pair<string, string>>> lexer();
-        map<string, T> run();
+        map<string, pair<string, string>> run();
         void WriteToJSON(const string& outputPath);
         void WriteToSource(const string& outputPath);
         void WriteAll(const string& jsonPath, const string& sourcePath);
@@ -566,9 +566,9 @@ Line 2: [KEYWORD:var] [IDENT:name] [OPERATOR:=] [IDENT:john] [DELIM:;]
 
 #### 3. **run()**
 
-**Purpose:** Execute parsing and variable management  
+**Purpose:** Execute parsing and variable management, returns parsed variables  
 **Parameters:** None  
-**Returns:** `map<string, T>` (currently empty placeholder)
+**Returns:** `map<string, pair<string, string>>` - Map of variables with (type, value) pairs
 
 **What it does:**
 1. Tokenizes all lines via lexer()
@@ -576,13 +576,20 @@ Line 2: [KEYWORD:var] [IDENT:name] [OPERATOR:=] [IDENT:john] [DELIM:;]
 3. Executes variable declarations
 4. Stores variables with types/values
 5. Outputs JSON to console
-6. Stores context for writing
+6. Returns the variables map for immediate use
+7. Stores context for writing
 
-**Example:**
+**Example - Get and use the data:**
 ```cpp
 DoFile<string> dofile;
 dofile.ReadFile("file.txt");
-dofile.run();  // Automatically outputs to console
+auto data = dofile.run();  // Returns the variables map
+
+// Access variables from the returned map
+for (const auto& entry : data) {
+    cout << entry.first << ": type=" << entry.second.first 
+         << ", value=" << entry.second.second << endl;
+}
 ```
 
 **Console output:**
@@ -591,9 +598,27 @@ dofile.run();  // Automatically outputs to console
   "age": {"type": "int", "value": "25"},
   "name": {"type": "string", "value": "john"}
 }
+
+=== Using returned data ===
+age: type=int, value=25
+name: type=string, value=john
 ```
 
-**Important:** Must call `run()` before calling write methods!
+**Accessing specific variables:**
+```cpp
+DoFile<string> dofile;
+dofile.ReadFile("file.txt");
+auto data = dofile.run();
+
+// Access a specific variable
+if (data.find("age") != data.end()) {
+    auto type = data["age"].first;    // "int"
+    auto value = data["age"].second;  // "25"
+    cout << "Age type: " << type << ", value: " << value << endl;
+}
+```
+
+**Important:** You can now use the returned data immediately without needing separate write calls!
 
 ---
 
