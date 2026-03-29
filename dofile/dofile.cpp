@@ -50,6 +50,63 @@ struct Variable {
     operator bool() const { return asBool(); }
 };
 
+struct Token {
+    string type;
+    string value;
+};
+
+struct TokenLine {
+    vector<Token> tokens;
+
+    void push_back(const Token& token) {
+        tokens.push_back(token);
+    }
+
+    Token& operator[](size_t idx) {
+        return tokens[idx];
+    }
+
+    const Token& operator[](size_t idx) const {
+        return tokens[idx];
+    }
+
+    size_t size() const {
+        return tokens.size();
+    }
+
+    bool empty() const {
+        return tokens.empty();
+    }
+
+    Token& back() {
+        return tokens.back();
+    }
+
+    const Token& back() const {
+        return tokens.back();
+    }
+
+    auto begin() {
+        return tokens.begin();
+    }
+
+    auto end() {
+        return tokens.end();
+    }
+
+    auto begin() const {
+        return tokens.begin();
+    }
+
+    auto end() const {
+        return tokens.end();
+    }
+
+    void clear() {
+        tokens.clear();
+    }
+};
+
 template<typename T>
 class DoFile {
     private:
@@ -109,10 +166,10 @@ class DoFile {
         }
     }
 
-    vector<vector<pair<string, string>>> lexer() {
-        vector<vector<pair<string, string>>> tokens;
+    vector<TokenLine> lexer() {
+        vector<TokenLine> tokens;
         for (const auto& line : lines) {
-            vector<pair<string, string>> lineTokens;
+            TokenLine lineTokens;
             string buffer = "";
             
             for (size_t i = 0; i < line.length(); i++) {
@@ -121,13 +178,13 @@ class DoFile {
                 // Handle quoted strings
                 if (ch == '"') {
                     if (!buffer.empty()) {
-                        if (variables["KEYWORD"].find(buffer) != variables["KEYWORD"].end()) {
-                            lineTokens.push_back({"KEYWORD", buffer});
-                        } else {
-                            lineTokens.push_back({"IDENT", buffer});
-                        }
-                        buffer = "";
+                    if (variables["KEYWORD"].find(buffer) != variables["KEYWORD"].end()) {
+                        lineTokens.push_back({"KEYWORD", buffer});
+                    } else {
+                        lineTokens.push_back({"IDENT", buffer});
                     }
+                    buffer = "";
+                }
                     string strValue = "\"";
                     i++;
                     while (i < line.length() && line[i] != '"') {
@@ -169,7 +226,7 @@ class DoFile {
                         }
                         buffer = "";
                     }
-                    lineTokens.push_back({"OPERATOR", twoChar});
+                            lineTokens.push_back({"OPERATOR", twoChar});
                     i++;
                     continue;
                 }
@@ -184,7 +241,7 @@ class DoFile {
                         }
                         buffer = "";
                     }
-                    lineTokens.push_back({"OPERATOR", string(1, ch)});
+                            lineTokens.push_back({"OPERATOR", string(1, ch)});
                     continue;
                 }
                 
@@ -197,7 +254,7 @@ class DoFile {
                         }
                         buffer = "";
                     }
-                    lineTokens.push_back({"DELIM", string(1, ch)});
+                            lineTokens.push_back({"DELIM", string(1, ch)});
                     continue;
                 }
                 
@@ -207,11 +264,11 @@ class DoFile {
             
             // Handle remaining buffer
             if (!buffer.empty()) {
-                if (variables["KEYWORD"].find(buffer) != variables["KEYWORD"].end()) {
-                    lineTokens.push_back({"KEYWORD", buffer});
-                } else {
-                    lineTokens.push_back({"IDENT", buffer});
-                }
+                    if (variables["KEYWORD"].find(buffer) != variables["KEYWORD"].end()) {
+                        lineTokens.push_back({"KEYWORD", buffer});
+                    } else {
+                        lineTokens.push_back({"IDENT", buffer});
+                    }
             }
             
             if (!lineTokens.empty()) {
@@ -230,7 +287,7 @@ class DoFile {
     }
 
     // Helper function to extract array/list/map contents with nesting support
-    string extractCollectionContent(const vector<pair<string, string>>& lineTokens, size_t startIdx) {
+    string extractCollectionContent(const TokenLine& lineTokens, size_t startIdx) {
         string content = "";
         bool inCollection = false;
         int bracketDepth = 0;
@@ -238,42 +295,42 @@ class DoFile {
         bool firstElement = true;
         
         for (size_t i = startIdx; i < lineTokens.size(); i++) {
-            if (lineTokens[i].first == "DELIM") {
-                if (!inCollection && (lineTokens[i].second == "{" || lineTokens[i].second == "[")) {
+            if (lineTokens[i].type == "DELIM") {
+                if (!inCollection && (lineTokens[i].value == "{" || lineTokens[i].value == "[")) {
                     inCollection = true;
-                    if (lineTokens[i].second == "[") bracketDepth++;
+                    if (lineTokens[i].value == "[") bracketDepth++;
                     else braceDepth++;
                     continue;
                 }
                 
                 if (inCollection) {
                     // Track nesting depth
-                    if (lineTokens[i].second == "[") {
+                    if (lineTokens[i].value == "[") {
                         bracketDepth++;
-                        content += lineTokens[i].second;
-                    } else if (lineTokens[i].second == "]") {
+                        content += lineTokens[i].value;
+                    } else if (lineTokens[i].value == "]") {
                         bracketDepth--;
                         if (bracketDepth <= 0 && braceDepth <= 0) {
                             break;  // End of collection
                         }
-                        content += lineTokens[i].second;
-                    } else if (lineTokens[i].second == "{") {
+                        content += lineTokens[i].value;
+                    } else if (lineTokens[i].value == "{") {
                         braceDepth++;
-                        content += lineTokens[i].second;
-                    } else if (lineTokens[i].second == "}") {
+                        content += lineTokens[i].value;
+                    } else if (lineTokens[i].value == "}") {
                         braceDepth--;
                         if (bracketDepth <= 0 && braceDepth <= 0) {
                             break;  // End of collection
                         }
-                        content += lineTokens[i].second;
-                    } else if (lineTokens[i].second == ",") {
-                        content += lineTokens[i].second;
-                    } else if (lineTokens[i].second == ";") {
+                        content += lineTokens[i].value;
+                    } else if (lineTokens[i].value == ",") {
+                        content += lineTokens[i].value;
+                    } else if (lineTokens[i].value == ";") {
                         break;  // Statement ended
                     }
                 }
-            } else if (inCollection && lineTokens[i].first != "DELIM") {
-                content += lineTokens[i].second;
+            } else if (inCollection && lineTokens[i].type != "DELIM") {
+                content += lineTokens[i].value;
             }
         }
         
@@ -281,25 +338,25 @@ class DoFile {
     }
 
     // Helper to parse complex generic types like array<array<int>>
-    pair<string, size_t> parseGenericType(const vector<pair<string, string>>& lineTokens, size_t startIdx) {
+    pair<string, size_t> parseGenericType(const TokenLine& lineTokens, size_t startIdx) {
         string typeStr = "";
         int angleDepth = 0;
         size_t i = startIdx;
         
         while (i < lineTokens.size()) {
-            if (lineTokens[i].first == "KEYWORD" || lineTokens[i].first == "IDENT") {
-                typeStr += lineTokens[i].second;
-            } else if (lineTokens[i].second == "<") {
+            if (lineTokens[i].type == "KEYWORD" || lineTokens[i].type == "IDENT") {
+                typeStr += lineTokens[i].value;
+            } else if (lineTokens[i].value == "<") {
                 angleDepth++;
                 typeStr += "<";
-            } else if (lineTokens[i].second == ">") {
+            } else if (lineTokens[i].value == ">") {
                 angleDepth--;
                 typeStr += ">";
                 if (angleDepth <= 0) {
                     i++;
                     break;
                 }
-            } else if (lineTokens[i].second == ",") {
+            } else if (lineTokens[i].value == ",") {
                 typeStr += ",";
             } else {
                 break;  // End of type declaration
@@ -311,16 +368,15 @@ class DoFile {
     }
 
     // Execute tokens and store variables
-    void execute(const vector<pair<string, string>>& lineTokens, map<string, Variable>& context, int lineNumber) {
+    void execute(const TokenLine& lineTokens, map<string, Variable>& context, int lineNumber) {
         if (lineTokens.empty()) return;
         
         // Handle variable assignment/update: x = value;
-        if (lineTokens.size() >= 4 && lineTokens[0].first == "IDENT" && lineTokens[1].second == "=") {
-            string varName = lineTokens[0].second;
-            string rawValue = lineTokens[2].second;
+        if (lineTokens.size() >= 4 && lineTokens[0].type == "IDENT" && lineTokens[1].value == "=") {
+            string varName = lineTokens[0].value;
+            string rawValue = lineTokens[2].value;
             
             if (context.find(varName) != context.end()) {
-                // Update existing variable
                 context[varName].rawValue = rawValue;
                 if (debug) cout << "DEBUG: Updated " << varName << " = " << rawValue << endl;
             }
@@ -328,27 +384,26 @@ class DoFile {
         }
         
         // Handle: var x = 10; or var x = y; or var<int> x = 10;
-        if (lineTokens[0].second == "var") {
+        if (lineTokens[0].value == "var") {
             string varName, varType = "", rawValue;
             size_t idx = 1;
             
             // Check if typed var<type>
-            if (lineTokens.size() > 1 && lineTokens[1].first == "OPERATOR" && lineTokens[1].second == "<") {
+            if (lineTokens.size() > 1 && lineTokens[1].type == "OPERATOR" && lineTokens[1].value == "<") {
                 auto [type, nextIdx] = parseGenericType(lineTokens, 1);
                 varType = type;
                 idx = nextIdx;
                 
-                if (idx < lineTokens.size()) varName = lineTokens[idx].second;
+                if (idx < lineTokens.size()) varName = lineTokens[idx].value;
                 idx++;  // skip variable name
             } else {
-                varName = lineTokens[1].second;
+                varName = lineTokens[1].value;
                 idx = 2;
             }
             
-            // Find = and extract value
-            while (idx < lineTokens.size() && lineTokens[idx].second != "=") idx++;
+            while (idx < lineTokens.size() && lineTokens[idx].value != "=") idx++;
             if (idx + 1 < lineTokens.size()) {
-                rawValue = lineTokens[idx + 1].second;
+                rawValue = lineTokens[idx + 1].value;
                 context[varName] = {varType, rawValue};
                 if (debug) {
                     cout << "DEBUG: Declared " << varName << " = " << rawValue;
@@ -358,16 +413,15 @@ class DoFile {
             }
         }
         // Handle: array<...> arr = [...]; list<...> lst = [...]; map<...> m = [...];
-        else if ((lineTokens[0].second == "array" || lineTokens[0].second == "list" || lineTokens[0].second == "map") && 
+        else if ((lineTokens[0].value == "array" || lineTokens[0].value == "list" || lineTokens[0].value == "map") && 
                  lineTokens.size() >= 4) {
             auto [typeStr, typeEndIdx] = parseGenericType(lineTokens, 0);
             
             if (typeEndIdx < lineTokens.size()) {
-                string varName = lineTokens[typeEndIdx].second;
+                string varName = lineTokens[typeEndIdx].value;
                 
-                // Find = and extract content
                 size_t assignIdx = typeEndIdx + 1;
-                while (assignIdx < lineTokens.size() && lineTokens[assignIdx].second != "=") assignIdx++;
+                while (assignIdx < lineTokens.size() && lineTokens[assignIdx].value != "=") assignIdx++;
                 
                 if (assignIdx + 1 < lineTokens.size()) {
                     string content = extractCollectionContent(lineTokens, assignIdx + 1);
@@ -377,42 +431,37 @@ class DoFile {
             }
         }
         // Handle: int x = 10; float y = 3.14; string z = hello;
-        else if (variables["KEYWORD"].find(lineTokens[0].second) != variables["KEYWORD"].end() && lineTokens.size() >= 5) {
-            string varType = lineTokens[0].second;
-            string varName = lineTokens[1].second;
-            string rawValue = lineTokens[3].second;
+        else if (variables["KEYWORD"].find(lineTokens[0].value) != variables["KEYWORD"].end() && lineTokens.size() >= 5) {
+            string varType = lineTokens[0].value;
+            string varName = lineTokens[1].value;
+            string rawValue = lineTokens[3].value;
             context[varName] = {varType, rawValue};
             if (debug) cout << "DEBUG: Declared " << varName << " = " << rawValue << " (" << varType << ")" << endl;
         }
     }
 
     map<string, Variable> run() {
-        map<string, Variable> context;  // var_name -> Variable
-        vector<vector<pair<string, string>>> tokens = this->lexer();
+        map<string, Variable> context;
+        vector<TokenLine> tokens = this->lexer();
         
-        // Merge multiline statements
-        vector<vector<pair<string, string>>> mergedTokens;
-        vector<pair<string, string>> currentStatement;
+        vector<TokenLine> mergedTokens;
+        TokenLine currentStatement;
         
         for (size_t i = 0; i < tokens.size(); i++) {
-            // Add tokens from current line to the statement
             for (const auto& token : tokens[i]) {
                 currentStatement.push_back(token);
             }
             
-            // Check if statement ends with semicolon
-            if (!tokens[i].empty() && tokens[i].back().first == "DELIM" && tokens[i].back().second == ";") {
+            if (!tokens[i].empty() && tokens[i].back().type == "DELIM" && tokens[i].back().value == ";") {
                 mergedTokens.push_back(currentStatement);
                 currentStatement.clear();
             }
         }
         
-        // Add any remaining tokens as final statement
         if (!currentStatement.empty()) {
             mergedTokens.push_back(currentStatement);
         }
         
-        // Execute each merged statement
         for (size_t i = 0; i < mergedTokens.size(); i++) {
             execute(mergedTokens[i], context, i + 1);
         }

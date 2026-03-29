@@ -93,9 +93,9 @@ outputFile.close();
 #include <vector>
 ```
 **Usage:**
-- Storing tokens: `vector<pair<string, string>>`
+- Storing tokens: `vector<Token>` (each token is a `type/value` pair)
 - Storing lines: `vector<string> lines`
-- Storing statements: `vector<vector<pair<string, string>>> tokens`
+- Storing statements: `vector<TokenLine>` (each `TokenLine` aggregates the tokens for one statement)
 
 **Example:**
 ```cpp
@@ -141,7 +141,7 @@ varName.length();    // Get length
 ```
 **Usage:**
 - Storing keywords: `map<string, map<string, T>>`
-- Storing context/variables: `map<string, pair<string, string>>`
+- Storing context/variables: `map<string, Variable>` (type + raw value + converters)
 - Token type mapping
 
 **Example:**
@@ -187,6 +187,8 @@ for (const auto& entry : keywords) {
 ```
 Uses strings to store tokens, vectors to organize tokens, and maps to organize keyword/operator/delimiter lists.
 
+Each token is now represented by a small `Token` struct (`type` + `value`), and `TokenLine` groups the tokens that belong to one logical statement. This lets the lexer return `vector<TokenLine>` while keeping the implementation readable.
+
 #### File I/O Module
 ```cpp
 #include <fstream>     // File operations
@@ -198,9 +200,8 @@ Uses ifstream to read input files and ofstream to write JSON and source outputs.
 ```cpp
 #include <map>         // Context storage
 #include <string>      // Variable names/types/values
-#include <pair>        // Implicit with map
 ```
-Stores variables: `map<string, pair<string, string>>` where first = type, second = value.
+Stores variables: `map<string, Variable>` where each `Variable` exposes `type`, `getRawValue()`, and automatic numeric/string conversions.
 
 ---
 
@@ -432,8 +433,8 @@ class DoFile {
         
         // Core methods
         void ReadFile(const string& filepath);
-        vector<vector<pair<string, string>>> lexer();
-        map<string, pair<string, string>> run();
+        vector<TokenLine> lexer();
+        map<string, Variable> run();
         void WriteToJSON(const string& outputPath);
         void WriteToSource(const string& outputPath);
         void WriteAll(const string& jsonPath, const string& sourcePath);
@@ -528,12 +529,11 @@ if (!file.is_open()) {
 
 **Purpose:** Tokenize all lines into structured tokens  
 **Parameters:** None  
-**Returns:** `vector<vector<pair<string, string>>>`
+**Returns:** `vector<TokenLine>`
 
 **Return structure:**
-- Outer vector: One per line
-- Inner vector: Tokens in that line
-- Pair: (token_type, token_value)
+- Each `TokenLine` packages the tokens for a statement.
+- Every token is a `Token { type, value }` pair, so you can inspect the `type` to know how to interpret `value`.
 
 **Token types returned:**
 - `"KEYWORD"` - int, float, string, var, array, list, map
@@ -568,7 +568,7 @@ Line 2: [KEYWORD:var] [IDENT:name] [OPERATOR:=] [IDENT:john] [DELIM:;]
 
 **Purpose:** Execute parsing and variable management, returns parsed variables  
 **Parameters:** None  
-**Returns:** `map<string, pair<string, string>>` - Map of variables with (type, value) pairs
+**Returns:** `map<string, Variable>` - every entry holds the declared type, the raw literal, and conversion helpers
 
 **What it does:**
 1. Tokenizes all lines via lexer()
@@ -583,25 +583,12 @@ Line 2: [KEYWORD:var] [IDENT:name] [OPERATOR:=] [IDENT:john] [DELIM:;]
 ```cpp
 DoFile<string> dofile;
 dofile.ReadFile("file.txt");
-auto data = dofile.run();  // Returns the variables map
+auto data = dofile.run();
 
-// Access variables from the returned map
 for (const auto& entry : data) {
-    cout << entry.first << ": type=" << entry.second.first 
-         << ", value=" << entry.second.second << endl;
+    cout << entry.first << ": type=" << entry.second.type
+         << ", value=" << entry.second.getRawValue() << endl;
 }
-```
-
-**Console output:**
-```json
-{
-  "age": {"type": "int", "value": "25"},
-  "name": {"type": "string", "value": "john"}
-}
-
-=== Using returned data ===
-age: type=int, value=25
-name: type=string, value=john
 ```
 
 **Accessing specific variables:**
@@ -610,11 +597,9 @@ DoFile<string> dofile;
 dofile.ReadFile("file.txt");
 auto data = dofile.run();
 
-// Access a specific variable
-if (data.find("age") != data.end()) {
-    auto type = data["age"].first;    // "int"
-    auto value = data["age"].second;  // "25"
-    cout << "Age type: " << type << ", value: " << value << endl;
+if (auto it = data.find("age"); it != data.end()) {
+    int ageValue = it->second;           // conversion operator to int
+    cout << "Age : type=" << it->second.type << ", value=" << ageValue << endl;
 }
 ```
 
