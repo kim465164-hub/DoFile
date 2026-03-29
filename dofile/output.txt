@@ -1,0 +1,4 @@
+map<string,int> ages = ["alice":25,"bob":30];
+string greeting = "hello";
+string name = "alice";
+array<string> words = ["apple","banana","orange"];

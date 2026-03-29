@@ -1,0 +1,6 @@
+{
+  "ages": {"type": "map<string,int>", "value": ""alice":25,"bob":30"},
+  "greeting": {"type": "string", "value": ""hello""},
+  "name": {"type": "string", "value": ""alice""},
+  "words": {"type": "array<string>", "value": ""apple","banana","orange""}
+}
