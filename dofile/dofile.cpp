@@ -1,3 +1,6 @@
+#ifndef DOFILE_LIBRARY_HPP
+#define DOFILE_LIBRARY_HPP
+
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -5,6 +8,47 @@
 #include <map>
 
 using namespace std;
+
+// Variable wrapper with automatic type conversion
+struct Variable {
+    string type;
+    string rawValue;
+    
+    // Convert to int
+    int asInt() const {
+        return stoi(rawValue);
+    }
+    
+    // Convert to float
+    float asFloat() const {
+        return stof(rawValue);
+    }
+    
+    // Convert to string (remove quotes)
+    string asString() const {
+        if (rawValue.length() >= 2 && rawValue[0] == '"' && rawValue.back() == '"') {
+            return rawValue.substr(1, rawValue.length() - 2);
+        }
+        return rawValue;
+    }
+    
+    // Convert to bool
+    bool asBool() const {
+        return rawValue == "true" || rawValue == "1";
+    }
+    
+    // Get raw array/list/map value
+    string getRawValue() const {
+        return rawValue;
+    }
+    
+    // Auto conversion operators for easy usage
+    operator int() const { return asInt(); }
+    operator float() const { return asFloat(); }
+    operator double() const { return stod(rawValue); }
+    operator string() const { return asString(); }
+    operator bool() const { return asBool(); }
+};
 
 template<typename T>
 class DoFile {
@@ -267,25 +311,25 @@ class DoFile {
     }
 
     // Execute tokens and store variables
-    void execute(const vector<pair<string, string>>& lineTokens, map<string, pair<string, string>>& context, int lineNumber) {
+    void execute(const vector<pair<string, string>>& lineTokens, map<string, Variable>& context, int lineNumber) {
         if (lineTokens.empty()) return;
         
         // Handle variable assignment/update: x = value;
         if (lineTokens.size() >= 4 && lineTokens[0].first == "IDENT" && lineTokens[1].second == "=") {
             string varName = lineTokens[0].second;
-            string varValue = resolveValue(lineTokens[2].second, context);
+            string rawValue = lineTokens[2].second;
             
             if (context.find(varName) != context.end()) {
                 // Update existing variable
-                context[varName].second = varValue;
-                if (debug) cout << "DEBUG: Updated " << varName << " = " << varValue << endl;
+                context[varName].rawValue = rawValue;
+                if (debug) cout << "DEBUG: Updated " << varName << " = " << rawValue << endl;
             }
             return;
         }
         
         // Handle: var x = 10; or var x = y; or var<int> x = 10;
         if (lineTokens[0].second == "var") {
-            string varName, varType = "", varValue;
+            string varName, varType = "", rawValue;
             size_t idx = 1;
             
             // Check if typed var<type>
@@ -304,10 +348,10 @@ class DoFile {
             // Find = and extract value
             while (idx < lineTokens.size() && lineTokens[idx].second != "=") idx++;
             if (idx + 1 < lineTokens.size()) {
-                varValue = resolveValue(lineTokens[idx + 1].second, context);
-                context[varName] = {varType, varValue};
+                rawValue = lineTokens[idx + 1].second;
+                context[varName] = {varType, rawValue};
                 if (debug) {
-                    cout << "DEBUG: Declared " << varName << " = " << varValue;
+                    cout << "DEBUG: Declared " << varName << " = " << rawValue;
                     if (!varType.empty()) cout << " (" << varType << ")";
                     cout << endl;
                 }
@@ -336,14 +380,14 @@ class DoFile {
         else if (variables["KEYWORD"].find(lineTokens[0].second) != variables["KEYWORD"].end() && lineTokens.size() >= 5) {
             string varType = lineTokens[0].second;
             string varName = lineTokens[1].second;
-            string varValue = resolveValue(lineTokens[3].second, context);
-            context[varName] = {varType, varValue};
-            if (debug) cout << "DEBUG: Declared " << varName << " = " << varValue << " (" << varType << ")" << endl;
+            string rawValue = lineTokens[3].second;
+            context[varName] = {varType, rawValue};
+            if (debug) cout << "DEBUG: Declared " << varName << " = " << rawValue << " (" << varType << ")" << endl;
         }
     }
 
-    map<string, pair<string, string>> run() {
-        map<string, pair<string, string>> context;  // var_name -> (type, value)
+    map<string, Variable> run() {
+        map<string, Variable> context;  // var_name -> Variable
         vector<vector<pair<string, string>>> tokens = this->lexer();
         
         // Merge multiline statements
@@ -380,11 +424,8 @@ class DoFile {
         cout << "{" << endl;
         size_t count = 0;
         for (const auto& entry : context) {
-            cout << "  \"" << entry.first << "\": {\"type\": \"" << entry.second.first 
-                 << "\", \"value\": \"" << entry.second.second << "\"}";
-            if (count < context.size() - 1) cout << ",";
-            cout << endl;
-            count++;
+            cout << "  \"" << entry.first << "\": {\"type\": \"" << entry.second.type
+                 << "\", \"value\": \"" << entry.second.rawValue << "\"}";
         }
         cout << "}" << endl;
         
@@ -402,8 +443,8 @@ class DoFile {
         file << "{" << endl;
         size_t count = 0;
         for (const auto& entry : lastContext) {
-            file << "  \"" << entry.first << "\": {\"type\": \"" << entry.second.first 
-                 << "\", \"value\": \"" << entry.second.second << "\"}";
+            file << "  \"" << entry.first << "\": {\"type\": \"" << entry.second.type 
+                 << "\", \"value\": \"" << entry.second.rawValue << "\"}";
             if (count < lastContext.size() - 1) file << ",";
             file << endl;
             count++;
@@ -424,8 +465,8 @@ class DoFile {
         
         for (const auto& entry : lastContext) {
             string varName = entry.first;
-            string varType = entry.second.first;
-            string varValue = entry.second.second;
+            string varType = entry.second.type;
+            string varValue = entry.second.rawValue;
             
             if (varType.empty()) {
                 file << "var " << varName << " = " << varValue << ";" << endl;
@@ -454,5 +495,7 @@ class DoFile {
     }
     
     protected:
-    map<string, pair<string, string>> lastContext;
+    map<string, Variable> lastContext;
 };
+
+#endif // DOFILE_LIBRARY_HPP

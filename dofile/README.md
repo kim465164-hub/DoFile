@@ -759,6 +759,8 @@ dofile.run();
 dofile.WriteAll("output.json", "output.txt");
 ```
 
+Because `dofile.cpp` is now wrapped in an include guard, you can `#include "dofile.cpp"` from any translation unit and retrieve the parser output as a `map<string, Variable>` without rewriting the parser logic. The `Variable` struct exposes conversion operators for `int`, `float`, `double`, `string`, and `bool` plus the `getRawValue()` helper, so client code can assign typed values directly (e.g., `int x = data["x"]; string name = data["name"];`). The provided `open_file.cpp` example demonstrates how to include `dofile.cpp`, run the reader, and immediately use the typed values or raw collections for downstream processing.
+
 ---
 
 ### Advanced: Extending DoFile
